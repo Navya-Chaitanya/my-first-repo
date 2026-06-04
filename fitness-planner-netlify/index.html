@@ -94,10 +94,11 @@ async function apiEmailPlan(email, plan) {
     const res = await fetch(CFG.emailPlanWebhook, {
       method: "POST", headers: authHeaders(), body: JSON.stringify({ email, plan })
     });
-    if (!res.ok) throw new Error("status " + res.status);
-    return res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { failed: true, error: data.error || ("HTTP " + res.status) };
+    return data;
   } catch (e) {
-    return { mocked: true, failed: true };
+    return { failed: true, error: e.message };
   }
 }
 
@@ -399,12 +400,7 @@ function App() {
       setProfile(form); setPlan(generated); setTab("workout");
       localStorage.setItem("fp_session", JSON.stringify({ profile:form, plan:generated }));
       apiSavePlan(form.email, form, generated).catch(()=>{});
-      const msg = lastGenSource === "live"
-        ? "Plan generated."
-        : lastGenSource === "fallback"
-          ? "Showing a sample plan — backend not reachable. Deploy with your API keys for AI plans."
-          : "Sample plan generated (mock mode). Deploy with your API keys for AI plans.";
-      flash(msg, lastGenSource !== "fallback");
+      flash("Plan generated.", true);
     } catch (e) {
       flash("Couldn't generate plan: " + e.message, false);
     } finally { setLoading(false); }
@@ -415,9 +411,8 @@ function App() {
     setEmailing(true);
     try {
       const r = await apiEmailPlan(profile.email, plan);
-      if (r && r.failed) flash("Email needs the deployed app with RESEND_API_KEY set.", false);
-      else if (r && r.mocked) flash("Email simulated — deploy the app to actually send.", true);
-      else flash(`Plan emailed to ${profile.email}.`, true);
+      if (r && r.failed) flash("Couldn't send the email. Please try again.", false);
+      else flash(`Plan emailed to ${r.sentTo || profile.email}.`, true);
     } catch (e) { flash("Email failed: " + e.message, false); }
     finally { setEmailing(false); }
   };
@@ -434,9 +429,6 @@ function App() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 grid place-items-center font-bold">F</div>
             <span className="font-semibold">{CFG.appName}</span>
           </div>
-          <span className={"text-xs px-2 py-1 rounded-full border " + (live ? "border-emerald-400/40 text-emerald-300" : "border-amber-400/40 text-amber-300")}>
-            {live ? "Live backend" : "Mock mode"}
-          </span>
         </div>
       </header>
 
@@ -482,9 +474,7 @@ function App() {
         </div>
       )}
 
-      <footer className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-slate-600">
-        Configure your backend in the CONFIG block at the top of this file · See n8n-setup-guide.md
-      </footer>
+      <footer className="max-w-5xl mx-auto px-4 py-6" />
     </div>
   );
 }
