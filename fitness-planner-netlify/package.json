@@ -1,0 +1,10 @@
+{
+  "name": "fitness-planner-netlify",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fitness planner web app with Netlify Functions (Gemini + Resend).",
+  "engines": {
+    "node": ">=18"
+  }
+}
